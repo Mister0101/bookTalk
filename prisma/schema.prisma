@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MeetingType {
+  IN_PERSON
+  ONLINE
+  HYBRID
+}
+
+enum ClubPrivacy {
+  PUBLIC
+  REQUEST_TO_JOIN
+  INVITE_ONLY
+}
+
+enum MemberRole {
+  HOST
+  MODERATOR
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  PENDING
+  BLOCKED
+}
+
+enum PollStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum RSVPStatus {
+  GOING
+  MAYBE
+  NOT_GOING
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PartnerType {
+  BOOKSTORE
+  LIBRARY
+  CAFE
+  INDEPENDENT
+}
+
+model User {
+  id                String      @id @default(cuid())
+  name              String
+  email             String      @unique
+  passwordHash      String?
+  avatarUrl         String?
+  city              String?
+  country           String?
+  bio               String?
+  favoriteGenres    String[]
+  readingPace       String?
+  discussionStyle   String?
+  meetingPreference String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  hostedClubs     Club[]        @relation("HostedClubs")
+  memberships     ClubMember[]
+  messages        Message[]
+  pollsCreated    Poll[]
+  pollVotes       PollVote[]
+  meetingsCreated Meeting[]
+  rsvps           RSVP[]
+  joinRequests    JoinRequest[]
+  reportsGiven    Report[]      @relation("Reporter")
+  reportsReceived Report[]      @relation("Reported")
+}
+
+model Book {
+  id          String   @id @default(cuid())
+  title       String
+  author      String
+  coverUrl    String?
+  description String?
+  genres      String[]
+  tropes      String[]
+  isbn        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clubs       Club[]
+  pollOptions PollOption[]
+}
+
+model Club {
+  id            String      @id @default(cuid())
+  name          String
+  description   String?
+  currentBookId String?
+  hostId        String
+  city          String?
+  country       String?
+  meetingType   MeetingType @default(ONLINE)
+  privacy       ClubPrivacy @default(PUBLIC)
+  memberLimit   Int         @default(20)
+  rules         String?
+  tags          String[]
+  partnerName   String?
+  partnerType   PartnerType?
+  partnerUrl    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  host         User          @relation("HostedClubs", fields: [hostId], references: [id])
+  currentBook  Book?         @relation(fields: [currentBookId], references: [id])
+  members      ClubMember[]
+  messages     Message[]
+  polls        Poll[]
+  meetings     Meeting[]
+  joinRequests JoinRequest[]
+  reports      Report[]
+}
+
+model ClubMember {
+  id       String       @id @default(cuid())
+  clubId   String
+  userId   String
+  role     MemberRole   @default(MEMBER)
+  status   MemberStatus @default(ACTIVE)
+  joinedAt DateTime     @default(now())
+
+  club Club @relation(fields: [clubId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([clubId, userId])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  clubId          String
+  userId          String
+  content         String
+  containsSpoiler Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  club Club @relation(fields: [clubId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Poll {
+  id          String     @id @default(cuid())
+  clubId      String
+  title       String
+  description String?
+  status      PollStatus @default(ACTIVE)
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  club      Club         @relation(fields: [clubId], references: [id])
+  createdBy User         @relation(fields: [createdById], references: [id])
+  options   PollOption[]
+  votes     PollVote[]
+}
+
+model PollOption {
+  id        String @id @default(cuid())
+  pollId    String
+  bookId    String?
+  label     String
+  voteCount Int    @default(0)
+
+  poll  Poll       @relation(fields: [pollId], references: [id])
+  book  Book?      @relation(fields: [bookId], references: [id])
+  votes PollVote[]
+}
+
+model PollVote {
+  id       String   @id @default(cuid())
+  pollId   String
+  optionId String
+  userId   String
+  createdAt DateTime @default(now())
+
+  poll   Poll       @relation(fields: [pollId], references: [id])
+  option PollOption @relation(fields: [optionId], references: [id])
+  user   User       @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+}
+
+model Meeting {
+  id           String      @id @default(cuid())
+  clubId       String
+  title        String
+  description  String?
+  meetingType  MeetingType
+  locationName String?
+  address      String?
+  onlineUrl    String?
+  startsAt     DateTime
+  endsAt       DateTime?
+  createdById  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  club      Club   @relation(fields: [clubId], references: [id])
+  createdBy User   @relation(fields: [createdById], references: [id])
+  rsvps     RSVP[]
+}
+
+model RSVP {
+  id        String     @id @default(cuid())
+  meetingId String
+  userId    String
+  status    RSVPStatus
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+}
+
+model JoinRequest {
+  id        String            @id @default(cuid())
+  clubId    String
+  userId    String
+  message   String?
+  status    JoinRequestStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  club Club @relation(fields: [clubId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([clubId, userId])
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterId     String
+  reportedUserId String?
+  clubId         String?
+  reason         String
+  description    String?
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  reporter     User  @relation("Reporter", fields: [reporterId], references: [id])
+  reportedUser User? @relation("Reported", fields: [reportedUserId], references: [id])
+  club         Club? @relation(fields: [clubId], references: [id])
+}
