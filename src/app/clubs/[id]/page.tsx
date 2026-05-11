@@ -243,14 +243,14 @@ export default function ClubDetailPage() {
                   key={member.userId}
                   className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3"
                 >
-                  <Avatar name={member.user!.name} size="md" />
+                  <Avatar name={member.user?.name ?? "Unknown"} size="md" />
                   <div>
-                    <p className="font-medium text-slate-800">{member.user!.name}</p>
+                    <p className="font-medium text-slate-800">{member.user?.name ?? "Unknown"}</p>
                     <p className="text-sm text-slate-600">
                       {member.role === "HOST" ? "Host" : member.role === "MODERATOR" ? "Moderator" : "Member"}
                     </p>
-                    {member.user!.city && (
-                      <p className="text-xs text-slate-500">{member.user!.city}</p>
+                    {member.user?.city && (
+                      <p className="text-xs text-slate-500">{member.user.city}</p>
                     )}
                   </div>
                 </div>
