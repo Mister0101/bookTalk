@@ -1,0 +1,43 @@
+{
+  "name": "booktalk",
+  "version": "1.0.0",
+  "description": "BookCircle - A local-first book club and reader-matching platform",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mister0101/bookTalk.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Mister0101/bookTalk/issues"
+  },
+  "homepage": "https://github.com/Mister0101/bookTalk#readme",
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^25.6.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "bcryptjs": "^3.0.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "next": "^16.2.6",
+    "next-auth": "^4.24.14",
+    "postcss": "^8.5.14",
+    "prisma": "5.22.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3"
+  }
+}
