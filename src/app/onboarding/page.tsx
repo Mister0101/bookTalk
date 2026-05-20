@@ -7,16 +7,28 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
-import { mockBooks } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+
+const ALL_GENRES = [
+  "Fantasy", "Science Fiction", "Mystery", "Thriller", "Romance",
+  "Historical Fiction", "Literary Fiction", "Horror", "Biography",
+  "Self-Help", "Non-Fiction", "Young Adult", "Graphic Novel",
+  "Poetry", "Philosophy", "Psychology", "Business", "Travel",
+].sort();
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = React.useState(1);
+  const [city, setCity] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [bio, setBio] = React.useState("");
   const [selectedGenres, setSelectedGenres] = React.useState<string[]>([]);
-
-  const allGenres = Array.from(
-    new Set(mockBooks.flatMap((book) => book.genres))
-  ).sort();
+  const [readingPace, setReadingPace] = React.useState("1-book");
+  const [discussionStyle, setDiscussionStyle] = React.useState("casual");
+  const [meetingPreference, setMeetingPreference] = React.useState("online");
+  const [allowGroupMatching, setAllowGroupMatching] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -24,7 +36,28 @@ export default function OnboardingPage() {
     );
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        city: city || null,
+        country: country || null,
+        bio: bio || null,
+        favorite_genres: selectedGenres,
+        reading_pace: readingPace,
+        discussion_style: discussionStyle,
+        meeting_preference: meetingPreference,
+        allow_group_matching: allowGroupMatching,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+    setLoading(false);
+    if (error) { setError(error.message); return; }
     router.push("/dashboard");
   };
 
@@ -54,13 +87,15 @@ export default function OnboardingPage() {
 
               <div className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
-                  <Input label="City" placeholder="Auckland" />
-                  <Input label="Country" placeholder="New Zealand" />
+                  <Input label="City" placeholder="Auckland" value={city} onChange={(e) => setCity(e.target.value)} />
+                  <Input label="Country" placeholder="New Zealand" value={country} onChange={(e) => setCountry(e.target.value)} />
                 </div>
                 <Textarea
                   label="Bio"
                   placeholder="Tell us a bit about yourself and your reading interests..."
                   rows={4}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
                 />
               </div>
             </div>
@@ -73,7 +108,7 @@ export default function OnboardingPage() {
               <p className="text-slate-600 mb-6">Select your favorite genres (choose at least 3)</p>
 
               <div className="flex flex-wrap gap-2 mb-4">
-                {allGenres.map((genre) => (
+                {ALL_GENRES.map((genre) => (
                   <button
                     key={genre}
                     onClick={() => toggleGenre(genre)}
@@ -109,11 +144,13 @@ export default function OnboardingPage() {
           {step === 3 && (
             <div>
               <h2 className="text-3xl font-bold text-slate-800 mb-2">Reading Preferences</h2>
-              <p className="text-slate-600 mb-6">Help us find the perfect clubs for you</p>
+              <p className="text-slate-600 mb-6">Help us find the perfect clubs and matches for you</p>
 
               <div className="space-y-4">
                 <Select
                   label="Reading Pace"
+                  value={readingPace}
+                  onChange={(e) => setReadingPace(e.target.value)}
                   options={[
                     { value: "1-book", label: "1 book per month" },
                     { value: "2-books", label: "2-3 books per month" },
@@ -122,6 +159,8 @@ export default function OnboardingPage() {
                 />
                 <Select
                   label="Discussion Style"
+                  value={discussionStyle}
+                  onChange={(e) => setDiscussionStyle(e.target.value)}
                   options={[
                     { value: "casual", label: "Casual - Light discussions" },
                     { value: "moderate", label: "Moderate - Mix of both" },
@@ -130,12 +169,38 @@ export default function OnboardingPage() {
                 />
                 <Select
                   label="Meeting Preference"
+                  value={meetingPreference}
+                  onChange={(e) => setMeetingPreference(e.target.value)}
                   options={[
                     { value: "in-person", label: "In-person meetings" },
                     { value: "online", label: "Online meetings" },
                     { value: "hybrid", label: "Both (hybrid)" },
                   ]}
                 />
+
+                {/* Group matching opt-in */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-1 w-4 h-4 accent-amber-600"
+                      checked={allowGroupMatching}
+                      onChange={(e) => setAllowGroupMatching(e.target.checked)}
+                    />
+                    <div>
+                      <p className="font-medium text-slate-800">Allow book matching</p>
+                      <p className="text-sm text-slate-600 mt-0.5">
+                        Let BookCircle add you to group chats with other readers who want to discuss the same book. You can change this anytime in Settings.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                    {error}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -165,8 +230,9 @@ export default function OnboardingPage() {
                 variant="primary"
                 onClick={handleComplete}
                 className="flex-1"
+                disabled={loading}
               >
-                Complete Setup
+                {loading ? "Saving…" : "Complete Setup"}
               </Button>
             )}
           </div>

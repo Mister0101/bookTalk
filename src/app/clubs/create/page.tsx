@@ -7,19 +7,27 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
-import { mockBooks } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+
+const ALL_GENRES = [
+  "Fantasy", "Science Fiction", "Mystery", "Thriller", "Romance",
+  "Historical Fiction", "Literary Fiction", "Horror", "Biography",
+  "Self-Help", "Non-Fiction", "Young Adult", "Graphic Novel",
+  "Poetry", "Philosophy", "Psychology", "Business", "Travel",
+].sort();
 
 export default function CreateClubPage() {
   const router = useRouter();
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [meetingType, setMeetingType] = React.useState("");
-  const [privacy, setPrivacy] = React.useState("");
+  const [meetingType, setMeetingType] = React.useState("online");
+  const [privacy, setPrivacy] = React.useState("public");
+  const [city, setCity] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [rules, setRules] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
-
-  const allGenres = Array.from(
-    new Set(mockBooks.flatMap((book) => book.genres))
-  ).sort();
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -27,10 +35,46 @@ export default function CreateClubPage() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock create - in production this would call an API
-    router.push("/dashboard");
+    if (selectedTags.length < 1) { setError("Please select at least one genre."); return; }
+    setError(null);
+    setLoading(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+
+    const { data: club, error: insertError } = await supabase
+      .from("clubs")
+      .insert({
+        name,
+        description: description || null,
+        genre: selectedTags[0],
+        created_by: user.id,
+        privacy: privacy as "public" | "request_to_join" | "invite_only",
+        meeting_type: meetingType as "in_person" | "online" | "hybrid",
+        city: city || null,
+        country: country || null,
+        rules: rules || null,
+      })
+      .select()
+      .single();
+
+    if (insertError || !club) {
+      setError(insertError?.message ?? "Failed to create club.");
+      setLoading(false);
+      return;
+    }
+
+    // Add creator as host
+    await supabase.from("club_members").insert({
+      club_id: club.id,
+      user_id: user.id,
+      role: "host",
+      status: "active",
+    });
+
+    router.push(`/clubs/${club.id}`);
   };
 
   return (
@@ -75,9 +119,9 @@ export default function CreateClubPage() {
                 value={meetingType}
                 onChange={(e) => setMeetingType(e.target.value)}
                 options={[
-                  { value: "IN_PERSON", label: "In Person" },
-                  { value: "ONLINE", label: "Online" },
-                  { value: "HYBRID", label: "Hybrid" },
+                  { value: "in_person", label: "In Person" },
+                  { value: "online", label: "Online" },
+                  { value: "hybrid", label: "Hybrid" },
                 ]}
                 required
               />
@@ -86,9 +130,9 @@ export default function CreateClubPage() {
                 value={privacy}
                 onChange={(e) => setPrivacy(e.target.value)}
                 options={[
-                  { value: "PUBLIC", label: "Public - Anyone can join" },
-                  { value: "REQUEST_TO_JOIN", label: "Request to Join - Approval required" },
-                  { value: "INVITE_ONLY", label: "Invite Only - Private" },
+                  { value: "public", label: "Public - Anyone can join" },
+                  { value: "request_to_join", label: "Request to Join - Approval required" },
+                  { value: "invite_only", label: "Invite Only - Private" },
                 ]}
                 required
               />
@@ -96,12 +140,12 @@ export default function CreateClubPage() {
           </div>
 
           {/* Location (conditional) */}
-          {(meetingType === "IN_PERSON" || meetingType === "HYBRID") && (
+          {(meetingType === "in_person" || meetingType === "hybrid") && (
             <div>
               <h2 className="text-xl font-semibold text-slate-800 mb-4">Location</h2>
               <div className="grid md:grid-cols-2 gap-4">
-                <Input label="City" placeholder="Auckland" />
-                <Input label="Country" placeholder="New Zealand" />
+                <Input label="City" placeholder="Auckland" value={city} onChange={(e) => setCity(e.target.value)} />
+                <Input label="Country" placeholder="New Zealand" value={country} onChange={(e) => setCountry(e.target.value)} />
               </div>
             </div>
           )}
@@ -113,7 +157,7 @@ export default function CreateClubPage() {
               Select genres that best represent your club (choose at least 3)
             </p>
             <div className="flex flex-wrap gap-2">
-              {allGenres.map((genre) => (
+              {ALL_GENRES.map((genre) => (
                 <button
                   key={genre}
                   type="button"
@@ -146,19 +190,23 @@ export default function CreateClubPage() {
             <Textarea
               placeholder="Add any specific rules or guidelines for your club members..."
               rows={3}
+              value={rules}
+              onChange={(e) => setRules(e.target.value)}
             />
           </div>
 
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
+
           {/* Submit */}
           <div className="flex gap-4 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              Create Club
+            <Button type="submit" variant="primary" className="flex-1" disabled={loading}>
+              {loading ? "Creating…" : "Create Club"}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => router.back()}
-            >
+            <Button type="button" variant="ghost" onClick={() => router.back()}>
               Cancel
             </Button>
           </div>
