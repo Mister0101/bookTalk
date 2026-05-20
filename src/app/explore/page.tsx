@@ -35,6 +35,14 @@ const COVER_GRADIENTS = [
 ];
 
 export default function ExplorePage() {
+  return (
+    <React.Suspense fallback={<div className="flex justify-center py-16"><span className="text-sm" style={{ color: "var(--bt-muted)" }}>Loading…</span></div>}>
+      <ExploreContent />
+    </React.Suspense>
+  );
+}
+
+function ExploreContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
